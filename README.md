@@ -2,6 +2,8 @@
 
 Sistema de turnos para una sucursal, con una cola independiente por tipo de
 servicio (`deposito`, `retiro`, `gestion_cuenta`) y numeración global de tickets.
+Solo biblioteca estándar (`collections.deque`, `datetime`), sin dependencias
+externas.
 
 ## Uso
 

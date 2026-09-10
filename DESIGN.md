@@ -11,8 +11,10 @@ ellos en cada llamada.
 
 Con **una cola por tipo de servicio** el siguiente cliente de un servicio es
 siempre el elemento del frente de su propia cola, así que `call_next` y
-`peek_next` son O(1): no hay búsqueda ni filtrado, solo un `pop` del frente.
-Además:
+`peek_next` son O(1): no hay búsqueda ni filtrado, solo un `popleft()`. Cada
+cola es un `collections.deque` precisamente por eso — sobre una `list`, sacar
+del frente con `pop(0)` obliga a desplazar todos los elementos restantes y
+volvería a ser O(n), perdiendo la ventaja. Además:
 
 - El orden FIFO por servicio queda garantizado por la estructura misma, no por
   un filtro que hay que recordar aplicar bien.
@@ -43,7 +45,7 @@ estado) y solo después devolverlo al agente para anunciarlo. La lectura y la
 extracción tienen que formar una sola operación indivisible.
 
 En este código eso se consigue con un `threading.Lock` en `BranchQueue`: la
-comprobación de cola vacía y el `pop(0)` ocurren dentro del mismo bloque `with
+comprobación de cola vacía y el `popleft()` ocurren dentro del mismo bloque `with
 self._lock`, de modo que el segundo agente que llegue encuentra la cola ya
 modificada y recibe el ticket siguiente (o un `EmptyQueueError` si no queda
 nadie). El mismo lock protege `issue_ticket`, para que dos emisiones concurrentes
@@ -67,5 +69,8 @@ reintento — nunca un "leer, luego borrar" en dos pasos separados.
   válidos.
 - `Ticket` es un dataclass congelado (`frozen=True`): un turno ya emitido es un
   hecho histórico y no debería mutarse.
-- `list_waiting()` devuelve copias de las listas, para que quien consulte no
-  pueda alterar las colas internas por accidente.
+- `list_waiting()` devuelve copias (`list(cola)`), para que quien consulte no
+  pueda alterar los `deque` internos por accidente.
+- Solo biblioteca estándar: `collections.deque` para las colas, `datetime` para
+  la marca de tiempo del ticket, `dataclasses` para el modelo y `threading` para
+  el lock. Ninguna dependencia externa.

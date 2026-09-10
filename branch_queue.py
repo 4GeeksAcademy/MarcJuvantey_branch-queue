@@ -8,9 +8,10 @@ reutilizarse desde una API, tests u otra interfaz sin cambios.
 from __future__ import annotations
 
 import threading
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Deque, Dict, List, Optional
 
 #: Tipos de servicio válidos. El orden define el orden de presentación.
 SERVICE_TYPES = ("deposito", "retiro", "gestion_cuenta")
@@ -49,13 +50,17 @@ class Ticket:
 class BranchQueue:
     """Gestiona una cola independiente por tipo de servicio.
 
-    Mantiene un contador global de tickets y un `threading.Lock` que hace
-    atómicas las operaciones de emisión y llamada (ver DESIGN.md).
+    Cada cola es un `collections.deque`, de modo que encolar por la derecha y
+    desencolar por la izquierda son O(1). Mantiene además un contador global de
+    tickets y un `threading.Lock` que hace atómicas las operaciones de emisión
+    y llamada (ver DESIGN.md).
     """
 
     def __init__(self, service_types=SERVICE_TYPES) -> None:
         self._service_types = tuple(service_types)
-        self._queues: Dict[str, List[Ticket]] = {s: [] for s in self._service_types}
+        self._queues: Dict[str, Deque[Ticket]] = {
+            s: deque() for s in self._service_types
+        }
         self._next_number = 1
         self._lock = threading.Lock()
 
@@ -108,7 +113,7 @@ class BranchQueue:
                 )
             # La mutación (retirar el ticket) ocurre dentro del lock y antes
             # de devolverlo: dos agentes nunca reciben el mismo cliente.
-            return cola.pop(0)
+            return cola.popleft()
 
     def peek_next(self, service_type: str) -> Optional[Ticket]:
         """Devuelve el siguiente cliente sin retirarlo, o `None` si no hay."""
